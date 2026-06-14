@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Penjualan Sederhana</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-100 p-8">
+
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold text-center mb-8 text-blue-600">Sistem Penjualan Toko Kopi</h1>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h2 class="text-xl font-semibold mb-4">Daftar Produk</h2>
+                <div id="produk-list" class="space-y-4">
+                    <p class="text-gray-500">Memuat produk...</p>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h2 class="text-xl font-semibold mb-4">Riwayat Transaksi Terakhir</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b text-gray-600">
+                                <th class="py-2">Produk</th>
+                                <th class="py-2">Jumlah</th>
+                                <th class="py-2">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transaksi-list">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 1. KONFIGURASI SUPABASE (Ganti dengan milikmu sendiri)
+        const SUPABASE_URL = "https://rwatbshrfjzpexemtuab.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ3YXRic2hyZmp6cGV4ZW10dWFiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0Mjc1ODYsImV4cCI6MjA5NzAwMzU4Nn0.52Gq99GYmkxSsMgjVeSkBuNW7GBqwTXpwqewKc7vVGM";
+        
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // 2. FUNGSI AMBIL DATA PRODUK
+        async function muatProduk() {
+            const { data, error } = await supabase.from('produk').select('*');
+            if (error) return console.error(error);
+
+            const container = document.getElementById('produk-list');
+            container.innerHTML = '';
+
+            data.forEach(item => {
+                container.innerHTML += `
+                    <div class="flex justify-between items-center p-3 border rounded">
+                        <div>
+                            <p class="font-medium">${item.nama}</p>
+                            <p class="text-sm text-gray-500">Rp ${item.harga.toLocaleString()} | Stok: ${item.stok}</p>
+                        </div>
+                        <button onclick="beliProduk(${item.id}, ${item.harga}, ${item.stok})" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm">
+                            Beli 1
+                        </button>
+                    </div>
+                `;
+            });
+        }
+
+        // 3. FUNGSI PROSES BELI
+        async function beliProduk(id, harga, stok SaatIni) {
+            if (stokSaatIni < 1) {
+                alert("Stok habis!");
+                return;
+            }
+
+            // Catat penjualan
+            const { error: errorJual } = await supabase.from('penjualan').insert([
+                { produk_id: id, jumlah: 1, total_harga: harga }
+            ]);
+
+            if (errorJual) return alert("Gagal transaksi");
+
+            // Kurangi stok produk
+            await supabase.from('produk').update({ stok: stokSaatIni - 1 }).eq('id', id);
+
+            // Refresh data di layar
+            muatProduk();
+            muatTransaksi();
+        }
+
+        // 4. FUNGSI AMBIL RIWAYAT TRANSAKSI
+        async function muatTransaksi() {
+            const { data, error } = await supabase
+                .from('penjualan')
+                .select('jumlah, total_harga, produk(nama)')
+                .order('id', { ascending: false })
+                .limit(5);
+
+            if (error) return console.error(error);
+
+            const tableBody = document.getElementById('transaksi-list');
+            tableBody.innerHTML = '';
+
+            data.forEach(t => {
+                tableBody.innerHTML += `
+                    <tr class="border-b text-sm">
+                        <td class="py-2">${t.produk ? t.produk.nama : 'Produk Dihapus'}</td>
+                        <td class="py-2">${t.jumlah}</td>
+                        <td class="py-2">Rp ${t.total_harga.toLocaleString()}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        // Jalankan fungsi saat web dibuka
+        muatProduk();
+        muatTransaksi();
+    </script>
+</body>
+</html>
